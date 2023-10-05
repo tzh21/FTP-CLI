@@ -48,13 +48,16 @@ int main(int argc, char **argv) {
 			break;
 		}
 		len = strlen(sentence);
-		sentence[len] = '\n';
-		sentence[len + 1] = '\0';
+		// abc\n len=4
+		// sentence[len] = '\n';
+		// sentence[len + 1] = '\0';
 		
 		//把键盘输入写入socket
 		p = 0;
+		// 会将\n写入socket中
 		while (p < len) {
-			int n = write(sockfd, sentence + p, len + 1 - p);		//write函数不保证所有的数据写完，可能中途退出
+			int n = write(sockfd, sentence + p, len - p);		//write函数不保证所有的数据写完，可能中途退出
+			// int n = write(sockfd, sentence + p, len + 1 - p);		//write函数不保证所有的数据写完，可能中途退出
 			if (n < 0) {
 				printf("Error write(): %s(%d)\n", strerror(errno), errno);
 				return 1;

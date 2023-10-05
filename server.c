@@ -66,8 +66,12 @@ int main(int argc, char **argv) {
 			}
 		}
 		//socket接收到的字符串并不会添加'\0'
-		sentence[p - 1] = '\0';
-		len = p - 1;
+		// sentence[p] = '\0';
+		// sentence: abc\n\0
+		// sentence[p - 1] = '\0';
+		len = strlen(sentence);
+		// len = p;
+		// len = p - 1;
 		
 		//字符串处理
 		for (p = 0; p < len; p++) {
