@@ -1,21 +1,4 @@
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-#include <unistd.h>
-#include <errno.h>
-
-#include <ctype.h>
-#include <string.h>
-#include <memory.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-// read函数的封装，完全读取，防止中断。
-int read_tcp(int fd, char *buf);
-
-// write函数的封装，完全写入，防止中断。
-int write_tcp(int fd, char *buf, int len);
+#include "utils.h"
 
 int main(int argc, char **argv) {
 	int listenfd, connfd;		//监听socket和连接socket不一样，后者用于数据传输
@@ -71,7 +54,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	printf("Socket established\n");
+	printf("Start listening\n");
 
 	// 循环处理client的请求
 	while (1) {
@@ -83,6 +66,8 @@ int main(int argc, char **argv) {
 			printf("Error accept(): %s(%d)\n", strerror(errno), errno);
 			continue;
 		}
+
+		printf("Client connected\n");
 
 		// 读取client的命令
 		read_tcp(connfd, sentence);
@@ -156,16 +141,10 @@ int main(int argc, char **argv) {
 				// 计算实际ip,port
 				sprintf(ip_trans, "%d.%d.%d.%d", h1, h2, h3, h4);
 				port_trans = p1 * 256 + p2; // 可以反推出p1的最大值是256
-				printf("%s:%d", ip_trans, port_trans);
+				printf("%s:%d\n", ip_trans, port_trans);
 
 				// 填充addr_trans
-				memset(&addr_trans, 0, sizeof(addr));
-				addr_trans.sin_family = AF_INET;
-				if (inet_pton(AF_INET, ip_trans, &addr_trans.sin_addr) <= 0) {			//转换ip地址:点分十进制-->二进制
-					printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
-					continue;
-				}
-				addr_trans.sin_port = port_trans;
+				create_addr(ip_trans, port_trans, &addr_trans);
 				is_addr_specified = 1;
 
 				continue_main_loop = 0;
@@ -197,73 +176,37 @@ int main(int argc, char **argv) {
 		read_tcp(connfd, sentence);
 		res = sscanf(sentence, "%s", buf);
 
-		if (strcmp(buf, "RETR")) {
-			char msg[] = "run RETR";
+		// 传输文件
+		if (strcmp(buf, "RETR") == 0) {
+			char msg[] = "50\n";
 			write_tcp(connfd, msg, strlen(msg));
-		}
+			
+			// 新建socket，用于传输文件
+			int sockfd_trans;
+			if ((sockfd_trans = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+				printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+				return 1;
+			}
 
-		//榨干socket传来的内容
-		// p = 0;
-		// int res = read_tcp(connfd, sentence);
-		// if (res == 0){
-		// 	close(connfd);
-		// 	continue;
-		// }
-		// len = strlen(sentence);
-		//字符串处理
-		// for (p = 0; p < len; p++) {
-		// 	sentence[p] = toupper(sentence[p]);
-		// }
-		//发送字符串到socket
- 		// p = 0;
-		// while (p < len) {
-		// 	int n = write(connfd, sentence + p, len + 1 - p);
-		// 	if (n < 0) {
-		// 		printf("Error write(): %s(%d)\n", strerror(errno), errno);
-		// 		return 1;
-	 	// 	} else {
-		// 		p += n;
-		// 	}
-		// }
+			// 设置目标用于文件传输的地址
+			// TODO 根据RETR参数设置地址
+			struct sockaddr_in addr_client_trans;
+			create_addr("127.0.0.1", 1357, &addr_client_trans);
+
+			// 连接
+			if (connect(sockfd_trans, (struct sockaddr*)&addr_client_trans, sizeof(addr_client_trans)) < 0){
+				printf("Error connect(): %s(%d)\n", strerror(errno), errno);
+				return 1;
+			}
+
+			// 通过新socket发送信息
+			// TODO broken pip 连接失败
+			char file_msg[] = "run RETR\n";
+			write_tcp(sockfd_trans, file_msg, strlen(file_msg));
+		}
 
 		close(connfd);
 	}
 
 	close(listenfd);
-}
-
-// read函数的封装，完全读取，防止中断。
-int read_tcp(int fd, char *buf){
-	int p = 0;
-	while (1) {
-		int n = read(fd, buf + p, 8191 - p);
-		if (n < 0){
-			printf("Error read(): %s(%d)\n", strerror(errno), errno);
-			return 0;
-		}
-		else if (n == 0){
-			break;
-		}
-		else{
-			p += n;
-			if (buf[p - 1] == '\n'){
-				break;
-			}
-		}
-	}
-	return 1;
-}
-
-int write_tcp(int fd, char *buf, int len){
-	int p = 0;
-	while (p < len){
-		int n = write(fd, buf + p, len + 1 - p);
-		if (n < 0){
-			printf("Error write(): %s(%d)\n", strerror(errno), errno);
-			return 0;
-		}
-		else{
-			p += n;
-		}
-	}
 }

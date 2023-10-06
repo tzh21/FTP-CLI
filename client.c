@@ -1,21 +1,4 @@
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-#include <unistd.h>
-#include <errno.h>
-
-#include <string.h>
-#include <memory.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-
-// read函数的封装，完全读取，防止中断。
-int read_tcp(int fd, char *buf);
-
-// write函数的封装，完全写入，防止中断。
-int write_tcp(int fd, char *buf, int len);
+#include "utils.h"
 
 int main(int argc, char **argv) {
 	char sentence[8192];
@@ -46,6 +29,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	// 通信主循环
 	while (1){
 		int sockfd;
 		struct sockaddr_in addr;
@@ -61,23 +45,11 @@ int main(int argc, char **argv) {
 		}
 
 		//设置本机的ip和port
-		memset(&addr_client, 0, sizeof(addr_client));
-		addr_client.sin_family = AF_INET;
-		addr_client.sin_port = port_client;
-		if (inet_pton(AF_INET, ip_client, &addr_client.sin_addr) <= 0) {			//转换ip地址:点分十进制-->二进制
-			printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
-			return 1;
-		}
+		create_addr(ip_client, port_client, &addr_client);
 		bind(sockfd, (struct sockaddr*)&addr_client, sizeof(addr_client));
 
 		//设置目标主机的ip和port
-		memset(&addr, 0, sizeof(addr));
-		addr.sin_family = AF_INET;
-		addr.sin_port = port_server;
-		if (inet_pton(AF_INET, ip, &addr.sin_addr) <= 0) {			//转换ip地址:点分十进制-->二进制
-			printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
-			return 1;
-		}
+		create_addr(ip, port_server, &addr);
 
 		//连接上目标主机（将socket和目标主机连接）-- 阻塞函数
 		// TODO 220
@@ -86,89 +58,63 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 
-		//获取键盘输入
+		// 获取键盘输入
 		printf("ftp:> ");
 		fgets(sentence, 4096, stdin);
-		if (strcmp(sentence, "quit\n") == 0){
-			break;
-		}
+		if (strcmp(sentence, "quit\n") == 0) break;
 		len = strlen(sentence);
 		
-		//把键盘输入写入socket
-		// write_tcp(sockfd, sentence, len);
-		// p = 0;
-		// while (p < len) {
-		// 	int n = write(sockfd, sentence + p, len - p);		//write函数不保证所有的数据写完，可能中途退出
-		// 	if (n < 0) {
-		// 		printf("Error write(): %s(%d)\n", strerror(errno), errno);
-		// 		return 1;
-		// 	} else {
-		// 		p += n;
-		// 	}
-		// }
+		// 写入socket
+		write_tcp(sockfd, sentence, len);
 
-		//榨干socket接收到的内容
+		// 榨干socket接收到的内容
 		int res = read_tcp(sockfd, sentence);
 
-		// p = 0;
-		// while (1) {
-		// 	int n = read(sockfd, sentence + p, 8191 - p);
-		// 	if (n < 0) {
-		// 		printf("Error read(): %s(%d)\n", strerror(errno), errno);	//read不保证一次读完，可能中途退出
-		// 		return 1;
-		// 	} else if (n == 0) {
-		// 		break;
-		// 	} else {
-		// 		p += n;
-		// 		if (sentence[p - 1] == '\n') {
-		// 			break;
-		// 		}
-		// 	}
-		// }
+		char code[100];
+		sscanf(sentence, "%s", code);
+		// 服务器要传输文件。创建新的socket，用于文件传输
+		if (strcmp(code, "50") == 0){
+			// 监听用的socket
+			int listenfd;
+			if ((listenfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+				printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+				return 1;
+			}
 
-		//注意：read并不会将字符串加上'\0'，需要手动添加
-		// sentence[p - 1] = '\0';
+			// TODO 在通信中设置端口
+			int port_client_trans = 1357;
+			struct sockaddr_in addr_client;
+			create_addr("0.0.0.0", 1357, &addr_client);
+			addr_client.sin_addr.s_addr = htonl(INADDR_ANY);	//监听"0.0.0.0"
+			
+			if (bind(listenfd, (struct sockaddr*)&addr_client, sizeof(addr_client)) == -1) {
+				printf("Error bind(): %s(%d)\n", strerror(errno), errno);
+				return 1;
+			}
 
-		// 解析服务器返回信息，进行对应操作
+			if (listen(listenfd, 10) == -1) {
+				printf("Error listen(): %s(%d)\n", strerror(errno), errno);
+				return 1;
+			}
+
+			// 传输文件使用的socket
+			int socknd_trans;
+			socklen_t addr_client_len = sizeof(addr_client);
+			if ((socknd_trans = accept(listenfd, (struct sockaddr *)&addr_client, &addr_client_len)) == -1) {
+				printf("Error accept(): %s(%d)\n", strerror(errno), errno);
+				continue;
+			}
+
+			read_tcp(socknd_trans, sentence);
+
+			close(listenfd);
+		}
+
+		// 解析服务器返回信息
 		printf("SERVER: %s", sentence);
 
 		close(sockfd);
 	}
 	
 	return 0;
-}
-
-int read_tcp(int fd, char *buf){
-	int p = 0;
-	while (1) {
-		int n = read(fd, buf + p, 8191 - p);
-		if (n < 0){
-			printf("Error read(): %s(%d)\n", strerror(errno), errno);
-			return 0;
-		}
-		else if (n == 0){
-			break;
-		}
-		else{
-			p += n;
-			if (buf[p - 1] == '\n'){
-				break;
-			}
-		}
-	}
-	return 1;
-}
-
-int write_tcp(int fd, char *buf, int len){
-	int p = 0;
-	while (p < len){
-		int n = write(fd, buf + p, len + 1 - p);
-		if (n < 0){
-			printf("Error write(): %s(%d)\n", strerror(errno), errno);
-			return 0;
-		}
-		else{
-			p += n;
-		}
-	}
 }
