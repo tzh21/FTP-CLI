@@ -23,6 +23,9 @@ int create_addr(char ip[], int port, struct sockaddr_in *addr){
 	return 1;
 }
 
+// 从fd中读取一行，存入buf中，返回是否成功
+// 传输的数据必须以\n结尾
+// 为buf的最后一位添加\0
 int read_tcp(int fd, char *buf){
 	int p = 0;
 	while (1) {
@@ -41,6 +44,7 @@ int read_tcp(int fd, char *buf){
 			}
 		}
 	}
+  buf[p] = '\0';
 	return 1;
 }
 
@@ -56,4 +60,5 @@ int write_tcp(int fd, char *buf, int len){
 			p += n;
 		}
 	}
+  return 1;
 }

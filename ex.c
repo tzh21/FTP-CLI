@@ -2,8 +2,8 @@
 #include <stdio.h>
 
 int main() {
-  char str[200];
-  fgets(str, 200, stdin);
-  printf("str: %s\n", str);
+  char str[100] = "abc\nefg";
+  int len = strlen(str);
+  printf("%d\n", len);
   return 0;
 }

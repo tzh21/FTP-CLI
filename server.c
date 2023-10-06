@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
 				// 重新进行主循环
 				if (res != 6){
 					printf("Error: PORT command format error\n");
-					char msg_login[] = "403 PORT command format error\n\n";
+					char msg_login[] = "403 PORT command format error\n";
 					write_tcp(connfd, msg_login, strlen(msg_login));
 
 					close(connfd);
@@ -200,9 +200,24 @@ int main(int argc, char **argv) {
 			}
 
 			// 通过新socket发送信息
-			// TODO broken pip 连接失败
-			char file_msg[] = "run RETR\n";
-			write_tcp(sockfd_trans, file_msg, strlen(file_msg));
+			// TODO 目录
+			FILE *file = fopen("/home/tzh/ftp/sample/ex.txt", "rb");
+			if (file == NULL){
+				perror("File open failed in server");
+				continue;
+			}
+			char file_buff[1024];
+			size_t bytes_read;
+			while ((bytes_read = fread(file_buff, 1, sizeof(file_buff), file)) > 0) {
+				if (write_tcp(sockfd_trans, file_buff, bytes_read) == 0){
+					break;
+				}
+			}
+
+			fclose(file);
+			close(sockfd_trans);
+			close(connfd);
+			continue;
 		}
 
 		close(connfd);

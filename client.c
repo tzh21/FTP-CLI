@@ -105,8 +105,23 @@ int main(int argc, char **argv) {
 				continue;
 			}
 
-			read_tcp(socknd_trans, sentence);
+			FILE *file = fopen("/home/tzh/ftp/downloads/ex.txt", "wb");
+			if (file == NULL){
+				perror("File open failed in client");
+				continue;
+			}
 
+			// ¶ÁÈ¡ÎÄ¼þ
+			size_t bytes_recv;
+			char file_buff[1024];
+			while((bytes_recv = recv(socknd_trans, file_buff, sizeof(file_buff), 0)) > 0){
+				fwrite(file_buff, 1, bytes_recv, file);
+			}
+
+			// read_tcp(socknd_trans, sentence);
+
+			fclose(file);
+			close(socknd_trans);
 			close(listenfd);
 		}
 
