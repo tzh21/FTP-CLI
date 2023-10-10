@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+// TODO 处理\r\n
+
 int create_addr(char ip[], int port, struct sockaddr_in *addr){
 	memset(addr, 0, sizeof(addr));
 	addr->sin_family = AF_INET;
@@ -23,13 +25,17 @@ int create_addr(char ip[], int port, struct sockaddr_in *addr){
 	return 1;
 }
 
-// 从fd中读取一行，存入buf中，返回是否成功
-// 传输的数据必须以\n结尾
-// 为buf的最后一位添加\0
+/**
+ * @brief 从socket中读取一行到buf，包括换行符，在结尾添加\0
+ * 
+ * @param fd 
+ * @param buf 
+ * @return int 是否成功
+ */
 int read_tcp(int fd, char *buf){
 	int p = 0;
 	while (1) {
-		int n = read(fd, buf + p, 8191 - p);
+		int n = read(fd, buf + p, 1000 - p);
 		if (n < 0){
 			printf("Error read(): %s(%d)\n", strerror(errno), errno);
 			return 0;
@@ -48,6 +54,14 @@ int read_tcp(int fd, char *buf){
 	return 1;
 }
 
+/**
+ * @brief 将buf写入socket，直到写完len个字节
+ * 
+ * @param fd 
+ * @param buf 
+ * @param len 
+ * @return int 是否成功
+ */
 int write_tcp(int fd, char *buf, int len){
 	int p = 0;
 	while (p < len){
@@ -62,3 +76,13 @@ int write_tcp(int fd, char *buf, int len){
 	}
   return 1;
 }
+
+// void reconnect(int connfd, int listenfd, ){
+// 	close(connfd);
+// 	if ((connfd = accept(listenfd, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+// 		printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+// 		return;
+// 	}
+// }
+
+// void dot_to_comma(char *ip, int port){}
