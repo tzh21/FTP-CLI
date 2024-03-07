@@ -1,9 +1,0 @@
-{
-  "files.associations": {
-    "unistd.h": "c",
-    "errno.h": "c",
-    "inet.h": "c",
-    "stdio.h": "c"
-  },
-  "C_Cpp.default.compilerPath": "/usr/bin/g++-11"
-}

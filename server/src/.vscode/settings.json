@@ -1,0 +1,9 @@
+{
+  "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+  "files.associations": {
+    "random": "c",
+    "limits": "c",
+    "utils.h": "c",
+    "string.h": "c"
+  }
+}
